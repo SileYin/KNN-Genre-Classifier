@@ -48,7 +48,7 @@ def select_features(data, labels, k, num_folds):
     acc = []
     for i in range(data.shape[0]):
         for feature_idx in tqdm.tqdm(itertools.combinations(range(data.shape[0]), i+1)):
-            avg_acc, _, conf = cross_validate(feature_matrix, labels, k, num_folds, feature_idx)
+            avg_acc, _, conf = cross_validate(data, labels, k, num_folds, feature_idx)
             sel_feature_ind.append(feature_idx)
             acc.append(avg_acc)
     return np.array(sel_feature_ind), np.array(acc)
@@ -67,12 +67,32 @@ def evaluate(data, labels):
 
 
 def kmeans_clustering(data, k):
-    return
+    prev_centroids = np.ones((data.shape[0], k))
+    centroids = data[:, np.random.choice(data.shape[-1], k)]
+    c_labels = np.zeros(data.shape[-1])
+    tol = 1e-60
+    while np.mean((centroids - prev_centroids)**2) > tol:
+        for i in range(data.shape[-1]):
+            distance = np.zeros(k)
+            for j in range(k):
+                distance[j] = np.sqrt(np.sum((centroids[:, j] - data[:, i])**2))
+            c_labels[i] = np.argmin(distance)
+        prev_centroids = centroids.copy()
+        for i in range(k):
+            centroids[:, i] = np.mean(data[:, c_labels == i], axis=1)
+    return c_labels, centroids
 
 
 if __name__ == '__main__':
     feature_matrix = np.loadtxt(open('data/data.txt'))
     labels = np.int32(np.loadtxt(open('data/labels.txt')))
+    feature_dict = ['Root Mean Square Mean', 'Zero Crossing Rate Mean', 'Spectral Centroid Mean',
+                    'Spectral Flux Mean', 'Spectral Crest Mean', 'Root Mean Square Std', 'Zero Crossing Rate Std',
+                    'Spectral Centroid Std', 'Spectral Flux Std', 'Spectral Crest Std']
+    for i in range(10):
+        avg_acc, acc, conf_mat = cross_validate(feature_matrix, labels, 3, 3, i)
+        print(f'Average accuracy for {feature_dict[i]} is {avg_acc*100:.2f}%.')
+
     '''
     sel_feature_ind, accuracy = select_features(feature_matrix, labels, 3, 3)
     plt.plot(accuracy)
@@ -82,6 +102,62 @@ if __name__ == '__main__':
     best_combination = sel_feature_ind[np.argmax(accuracy)]
     print(best_combination)
     '''
-    accuracies, conf_matrices = evaluate(feature_matrix, labels)
+    # accuracies, conf_matrices = evaluate(feature_matrix, labels)
+    c_labels, centroids = kmeans_clustering(feature_matrix, 5)
+    plt.plot(c_labels)
+    plt.xlabel('Data Point')
+    plt.ylabel('Cluster Label')
+    plt.show()
+    '''
+    # Test scripts to prove my k-means clustering is right
+    from sklearn.datasets import make_blobs
+
+    # create dataset
+    X, y = make_blobs(
+        n_samples=150, n_features=2,
+        centers=3, cluster_std=0.5,
+        shuffle=True, random_state=0
+    )
+
+    plt.scatter(
+        X[:, 0], X[:, 1],
+        c='white', marker='o',
+        edgecolor='black', s=50
+    )
+    plt.show()
+
+    y_km, centroids = kmeans_clustering(X.T, 3)
+
+    plt.scatter(
+        X[y_km == 0, 0], X[y_km == 0, 1],
+        s=50, c='lightgreen',
+        marker='s', edgecolor='black',
+        label='cluster 1'
+    )
+
+    plt.scatter(
+        X[y_km == 1, 0], X[y_km == 1, 1],
+        s=50, c='orange',
+        marker='o', edgecolor='black',
+        label='cluster 2'
+    )
+
+    plt.scatter(
+        X[y_km == 2, 0], X[y_km == 2, 1],
+        s=50, c='lightblue',
+        marker='v', edgecolor='black',
+        label='cluster 3'
+    )
+
+    plt.scatter(
+        centroids.T[:, 0], centroids.T[:, 1],
+        s=250, marker='*',
+        c='red', edgecolor='black',
+        label='centroids'
+    )
+    plt.legend(scatterpoints=1)
+    plt.grid()
+    plt.show()
+    '''
     print
 # EOF
